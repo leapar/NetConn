@@ -1,4 +1,4 @@
-package windows
+package win32
 
 import (
 	"strings"

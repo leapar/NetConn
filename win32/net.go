@@ -48,7 +48,7 @@ func htons(port uint16) uint16 {
 	return ret
 }
 
-func inet_addr(ipaddr string) uint32 {
+func Inet_addr(ipaddr string) uint32 {
 	var (
 		segments []string = strings.Split(ipaddr, ".")
 		ip       [4]uint64

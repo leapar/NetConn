@@ -23,7 +23,7 @@ type JJProtoCodec struct {
 
 // 编码器的名称
 func (self *JJProtoCodec) Name() string {
-	return "jjgame"
+	return "jjproto"
 }
 
 func (self *JJProtoCodec) MimeType() string {
@@ -35,15 +35,44 @@ func (self *JJProtoCodec) MimeType() string {
 // 将结构体编码为JSON的字节数组
 func (self *JJProtoCodec) Encode() ( []byte,  error) {
 	pkt := make([]byte, bodySize+self.Len)
-
-	binary.LittleEndian.PutUint32(pkt, self.Times)
-	binary.LittleEndian.PutUint32(pkt, self.Idx)
-	binary.LittleEndian.PutUint32(pkt, self.Unknown1)
-	binary.LittleEndian.PutUint32(pkt, self.Type)
-	binary.LittleEndian.PutUint32(pkt, self.Unknown3)
-	binary.LittleEndian.PutUint32(pkt, self.Len)
+	i := 0
+	binary.LittleEndian.PutUint32(pkt[i:], self.Times)
+	i += 4
+	binary.LittleEndian.PutUint32(pkt[i:], self.Idx)
+	i += 4
+	binary.LittleEndian.PutUint32(pkt[i:], self.Unknown1)
+	i += 4
+	binary.LittleEndian.PutUint32(pkt[i:], self.Type)
+	i += 4
+	binary.LittleEndian.PutUint32(pkt[i:], self.Unknown3)
+	i += 4
+	binary.LittleEndian.PutUint32(pkt[i:], self.Len)
+	i += 4
 
 	copy(pkt[24:],self.Data)
+	if self.Type & 0x40000000  == 0{
+	//	fmt.Println("encode:",pkt)
+		return pkt,nil
+	}
+
+	self.Type  = self.Type & 0xbfffffff
+	binary.LittleEndian.PutUint32(pkt[12:], self.Type)
+
+	if self.Len > 0 {
+		for j := 0; j < int(self.Len); {
+			temp := int(self.Idx)
+			temp = temp ^ j
+			temp = temp & 0x3
+
+			if j+ 24 >= len(pkt) {
+				fmt.Println("error")
+			}
+			pkt[j+24] = pkt[j+24] ^ pkt[temp]
+			j++
+		}
+	}
+//	fmt.Println("encode:",pkt)
+
 	return pkt,nil
 
 }
@@ -60,7 +89,13 @@ func (self *JJProtoCodec) Decode(data []byte) (error,int) {
 	self.Idx = binary.LittleEndian.Uint32(data[0x4:])
 	var i int = 0
 
-	if self.Type == 0x40000000 {
+	if len(data) >= int(24+self.Len){
+		//fmt.Println("decode:",data[:24+self.Len])
+	}
+
+	//fmt.Printf("self.Type & 0x40000000: %X,%X\n",self.Type ,self.Type & 0x40000000)
+
+	if self.Type & 0x40000000 == 0 {
 
 		self.Times = binary.LittleEndian.Uint32(data[i:i+4])
 		i += 4
@@ -77,7 +112,20 @@ func (self *JJProtoCodec) Decode(data []byte) (error,int) {
 		if i > len(data) {
 			return fmt.Errorf("data not enough"),-1
 		}
+		if self.Type == 0x80010180 && self.Len == 33 {
+			//[34 31 8 146
+			// 179 202 145 2
+			// 50 23 8 0 16
+			// 0 26
+			// 17 28 13 40 52 1 6 31 33 53 35 3 24 12 27 50 51 41]
 
+			fmt.Println("--------",data[24+14:24+33])
+			len := data[24+14]
+			for  i := 0; i < int(len) ; i++ {
+			//	data[24+14+i] = 53
+			}
+			fmt.Println("================",len,data[24+14:24+33])
+		}
 	} else {
 
 		self.Times = binary.LittleEndian.Uint32(data[i:i+4])
@@ -110,6 +158,18 @@ func (self *JJProtoCodec) Decode(data []byte) (error,int) {
 				j++
 			}
 		}
+
+		/*if self.Type == 0x80010180 && self.Len == 33 {
+			//[34 31 8 146
+			// 179 202 145 2
+			// 50 23 8 0 16
+			// 0 26
+			// 17 28 13 40 52 1 6 31 33 53 35 3 24 12 27 50 51 41]
+			len := data[24+15]
+			for  i := 0; i < int(len) ; i++ {
+				data[24+16+i] = 53
+			}
+		}*/
 	}
 	
 /*

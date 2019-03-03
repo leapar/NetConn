@@ -16,7 +16,7 @@ func connectServers(lobbyConn net.Conn) net.Conn {
 	}
 	tcp := conn.(*net.TCPConn)
 	jj := network.JJParser{
-		Flag:fmt.Sprintf("%s==>%s\t",tcp.LocalAddr().String(),tcp.RemoteAddr().String()),
+		Flag:fmt.Sprintf("%s==>%s\t",tcp.RemoteAddr().String(),tcp.LocalAddr().String()),
 	}
 	go func(conn net.Conn,lobbyConn net.Conn) {
 		data := make([]byte, 4096)
@@ -34,13 +34,20 @@ func connectServers(lobbyConn net.Conn) net.Conn {
 
 				return
 			}
-			lobbyConn.Write(data[:n])
+			//lobbyConn.Write(data[:n])
 			//fmt.Printf("facebook:%d\n",n)
 
 
 			//jj := network.JJProtoCodec{}
 			//jj.Decode(data[:n])
-			jj.ParseJJ(data[:n])
+			packs := jj.ParseJJ(data[:n])
+			for _, value := range packs {
+				v,err := value.Encode()
+				if err == nil {
+					lobbyConn.Write(v)
+				}
+
+			}
 
 			//fmt.Println(data[:n])
 		}
@@ -66,7 +73,7 @@ func Echo(c net.Conn) {
 
 	tcp := c.(*net.TCPConn)
 	jj := network.JJParser{
-		Flag:fmt.Sprintf("%s==>%s\t",tcp.LocalAddr().String(),tcp.RemoteAddr().String()),
+		Flag:fmt.Sprintf("%s==>%s\t",tcp.RemoteAddr().String(),tcp.LocalAddr().String()),
 	}
 	jjConn := getSocket(c)
 	for {
